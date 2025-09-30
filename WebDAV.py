@@ -1,5 +1,4 @@
 import xml.etree.ElementTree as ET
-import datetime
 import requests
 import time
 import os
@@ -8,6 +7,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# 设置日志，指定编码为 'utf-8'
+logging.basicConfig(
+    filename='webdav_sync.log',  # 日志文件名
+    level=logging.INFO,  # 日志级别
+    format='%(asctime)s - %(levelname)s - %(message)s',  # 日志格式
+    encoding='utf-8'  # 指定文件编码为 UTF-8
+)
 
 class WebDAVClient:
     def __init__(self, url, username, password):
@@ -48,7 +55,7 @@ class WebDAVClient:
             )
             return response
         except requests.exceptions.RequestException as e:
-            print(f"请求出错: {e}")
+            logging.error(f"请求出错: {e}")
             return None
 
     def upload(self, local_file, remote_path):
@@ -57,9 +64,9 @@ class WebDAVClient:
             response = self._make_request('PUT', remote_path, data=f)
         
         if response and response.status_code == 201 or response.status_code == 204:
-            print(f"文件上传成功: {local_file} -> {remote_path}")
+            logging.info(f"文件上传成功: {local_file} -> {remote_path}")
         else:
-            print(f"上传失败: {response.status_code if response else response.text} {response.text}")
+            logging.error(f"上传失败: {response.status_code if response else response.text} {response.text}")
 
 
     def download(self, remote_path, local_file):
@@ -69,11 +76,11 @@ class WebDAVClient:
         if response and response.status_code == 200:
             with open(local_file, 'wb') as f:
                 f.write(response.content)
-            print(f"文件下载成功: {remote_path} -> {local_file}")
+            logging.info(f"文件下载成功: {remote_path} -> {local_file}")
         else:
-            print(f"下载失败: {response.status_code if response else response.text}")
+            logging.error(f"下载失败: {response.status_code if response else response.text}")
 
-    def list_directory(self, remote_path):
+    def list_directory(self, remote_path,log_file_info = False):
         """列出目录内容，并格式化输出"""
         propfind_xml = """<?xml version="1.0" encoding="utf-8" ?>
 <propfind xmlns="DAV:">
@@ -87,7 +94,6 @@ class WebDAVClient:
         if response and response.status_code == 207:
             # 解析返回的 XML 内容
             root = ET.fromstring(response.text)
-            # print(response.text)
             # 遍历所有的文件或目录
             for response_element in root.findall('{DAV:}response'):
                 
@@ -103,48 +109,50 @@ class WebDAVClient:
                 content_length_text = content_length.text if content_length is not None else "无大小"
                 getcontent_type_text = getcontent_type.text if getcontent_type is not None else "无类型"
                 # # 格式化输出目录内容
-                print(f"路径: {href}")
-                print(f"名称: {display_name_text}")
-                print(f"大小: {content_length_text}")
-                print(f"类型: {getcontent_type_text}")
-                print(f"最后修改时间: {last_modified_text}")
-                print("-" * 50)
+                if log_file_info:
+                    logging.info(f"路径: {href} ")
+                    logging.info(f"名称: {display_name_text}")
+                    logging.info(f"大小: {content_length_text}")
+                    logging.info(f"类型: {getcontent_type_text}")
+                    logging.info(f"最后修改时间: {last_modified_text}")
+                    logging.info("-" * 50)
                 
                 file_list.append({'href': href, 'file_name':display_name_text,'content_length':content_length_text,'getcontent_type':getcontent_type_text,'modified': last_modified_text})
             return file_list
         else:
-            print(f"列出目录失败: {response.status_code if response else response.text}")
+            logging.error(f"列出目录失败: {response.status_code if response else response.text}")
 
     def delete(self, remote_path):
         """删除文件"""
         response = self._make_request('DELETE', remote_path)
         
         if response and response.status_code == 204:
-            print(f"文件删除成功: {remote_path}")
+            logging.info(f"文件删除成功: {remote_path}")
         else:
-            print(f"删除失败: {response.status_code if response else response.text}")
+            logging.error(f"删除失败: {response.status_code if response else response.text}")
 
     def create_directory(self, remote_path):
         """创建目录"""
         response = self._make_request('MKCOL', remote_path)
         
         if response and response.status_code == 201:
-            print(f"目录创建成功: {remote_path}")
+            logging.info(f"目录创建成功: {remote_path}")
         else:
-            print(f"创建目录失败: {response.status_code if response else response.text}")
+            logging.error(f"创建目录失败: {response.status_code if response else response.text}")
 
     def local_aync(self,local_directory,remote_directory):
-        """本地同步"""
+        """本地同步 下载本地没有的文件 remote_file --> local_file"""
         local_file_list = os.listdir(local_directory)
         remote_file_info = self.list_directory(remote_directory)
         remote_file_list = [i.get('file_name') for i in remote_file_info]
-        need_download = list(set(remote_file_list)-set(local_file_list))
+
+        need_download = list(set(remote_file_list)-set(local_file_list)-set([remote_directory]))
         for filename in need_download:
             file_path = self.path(filename,local_directory,remote_directory)
             self.download(file_path.get('remote_file'),file_path.get('local_file'))
 
     def remote_aync(self,local_directory,remote_directory):
-        """远程同步"""
+        """远程同步 上传云端没有的文件 local_file --> remote_file"""
         local_file_list = os.listdir(local_directory)
         remote_file_info = self.list_directory(remote_directory)
         remote_file_list = [i.get('file_name') for i in remote_file_info]
@@ -159,7 +167,7 @@ class WebDAVClient:
         remote_file = os.path.join(remote_directory, filename)
         local_file = Path(local_file).as_posix()
         remote_file = Path(remote_file).as_posix()
-        print({filename:{'local_file':local_file,'remote_file':remote_file}})
+        # logging.info({filename:{'local_file':local_file,'remote_file':remote_file}})
         return {'local_file':local_file,'remote_file':remote_file}
     
     # 增量同步示例
@@ -178,37 +186,24 @@ class WebDAVClient:
                 
                 # 检查文件是否修改过（增量同步）
                 if os.path.getmtime(local_file) > last_sync_time:
-                    print(os.path.getmtime(local_file) , last_sync_time,os.path.getmtime(local_file) > last_sync_time)
                     self.upload(local_file, remote_file)
 
-                # for remote_file_info in remote_file_list:
-                #     filename = remote_file_info.get('href')[path_split:]
-                #     if filename == remote_file:
-                #         remote_file_mtime = remote_file_info['modified']
                 # 将 remote_file_list 转换为字典，以 href 为键
                 file_dict = {file['file_name']: file for file in remote_file_list}
                 # 获取 /dav/Memo/a.py 的 modified 值
                 remote_file_mtime = file_dict.get(filename, {}).get('modified', None)
-                
                 # 将远程修改时间转换为时间戳
                 remote_mtime_timestamp = self._format(remote_file_mtime)
                 if remote_mtime_timestamp > last_sync_time:
                     self.download(remote_file, local_file)
 
         except Exception as e:
-            print(f"获取远程文件信息失败: {e}")
-            # logging.error(f"获取远程文件信息失败: {e}")
+            logging.error(f"获取远程文件信息失败: {e}")
         # 更新上次同步时间
         self.set_last_sync_time()
 
 
-# 设置日志，指定编码为 'utf-8'
-logging.basicConfig(
-    filename='webdav_sync.log',  # 日志文件名
-    level=logging.INFO,  # 日志级别
-    format='%(asctime)s - %(levelname)s - %(message)s',  # 日志格式
-    encoding='utf-8'  # 指定文件编码为 UTF-8
-)
+
 
 # 示例用法：
 if __name__ == "__main__":
@@ -218,7 +213,7 @@ if __name__ == "__main__":
     DAV_PASSWORD = os.getenv('DAV_PASSWORD')
     LOCAL_DIRECTORY = os.getenv('LOCAL_DIRECTORY')
     REMOTE_DIRECTORY = os.getenv('REMOTE_DIRECTORY')
-    print(WEBDAV_URL,DAV_USERNAME,DAV_PASSWORD,LOCAL_DIRECTORY,REMOTE_DIRECTORY)
+    # print(WEBDAV_URL,DAV_USERNAME,DAV_PASSWORD,LOCAL_DIRECTORY,REMOTE_DIRECTORY)
     # 初始化 WebDAV 客户端
     client = WebDAVClient(WEBDAV_URL, DAV_USERNAME, DAV_PASSWORD)
     
@@ -226,8 +221,10 @@ if __name__ == "__main__":
     # client.sync_files(LOCAL_DIRECTORY, REMOTE_DIRECTORY)
     # client.local_aync(LOCAL_DIRECTORY, REMOTE_DIRECTORY)
     client.sync_files(LOCAL_DIRECTORY, REMOTE_DIRECTORY)
+    # client.remote_aync(LOCAL_DIRECTORY, REMOTE_DIRECTORY)
 
-    # print(client.list_directory(REMOTE_DIRECTORY))
+
+    # logging.info(client.list_directory(REMOTE_DIRECTORY))
     # file_list = client.list_directory("Memo")
 
 
@@ -236,6 +233,17 @@ if __name__ == "__main__":
 
     # # 示例：下载文件
     # client.download("Memo/test.txt", "static/test.txt")  
+
+
+    # client.create_directory("Memo/new_directory/")
+
+
+
+    # # 示例：上传文件
+    # client.upload("path/to/local/file.txt", "/remote/path/to/upload/file.txt")
+
+    # # 示例：下载文件
+    # client.download("/remote/path/to/file.txt", "path/to/local/downloaded_file.txt")
 
     # # 示例：列出目录
     # client.list_directory("/remote/path/to/directory/")

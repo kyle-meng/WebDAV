@@ -1,0 +1,13 @@
+2025-09-30 20:04:33,028 - INFO - {'Memo': {'local_file': 'test/Memo', 'remote_file': 'Memo/Memo'}}
+2025-09-30 20:04:35,696 - INFO - 下载失败: <?xml version="1.0" encoding="UTF-8" standalone="no"?><d:error xmlns:d="DAV:" xmlns:s="http://ns.jianguoyun.com"><s:exception>ObjectNotFound</s:exception><s:message>the object /Memo doesn't exist</s:message></d:error>
+2025-09-30 20:04:35,698 - INFO - {'a.py': {'local_file': 'test/a.py', 'remote_file': 'Memo/a.py'}}
+2025-09-30 20:04:38,323 - INFO - 文件下载成功: Memo/a.py -> test/a.py
+2025-09-30 20:10:48,888 - INFO - {'文本文档.txt': {'local_file': 'test/文本文档.txt', 'remote_file': 'Memo/文本文档.txt'}}
+2025-09-30 20:10:51,722 - INFO - 文件下载成功: Memo/文本文档.txt -> test/文本文档.txt
+2025-09-30 20:10:51,725 - INFO - {'Memo': {'local_file': 'test/Memo', 'remote_file': 'Memo/Memo'}}
+2025-09-30 20:10:54,458 - ERROR - 下载失败: <?xml version="1.0" encoding="UTF-8" standalone="no"?><d:error xmlns:d="DAV:" xmlns:s="http://ns.jianguoyun.com"><s:exception>ObjectNotFound</s:exception><s:message>the object /Memo doesn't exist</s:message></d:error>
+2025-09-30 20:20:55,829 - INFO - {'文本文档(1).txt': {'local_file': 'test/文本文档(1).txt', 'remote_file': 'Memo/文本文档(1).txt'}}
+2025-09-30 20:20:58,570 - INFO - 文件下载成功: Memo/文本文档(1).txt -> test/文本文档(1).txt
+2025-09-30 20:25:28,279 - ERROR - 创建目录失败: <?xml version="1.0" encoding="UTF-8" standalone="no"?><d:error xmlns:d="DAV:" xmlns:s="http://ns.jianguoyun.com"><s:exception>AncestorsNotFound</s:exception><s:message>The ancestors of this location does not found</s:message></d:error>
+2025-09-30 20:26:12,878 - ERROR - 创建目录失败: <?xml version="1.0" encoding="UTF-8" standalone="no"?><d:error xmlns:d="DAV:" xmlns:s="http://ns.jianguoyun.com"><s:exception>AncestorsNotFound</s:exception><s:message>The ancestors of this location does not found</s:message></d:error>
+2025-09-30 20:26:27,518 - INFO - 目录创建成功: Memo/new_directory/
